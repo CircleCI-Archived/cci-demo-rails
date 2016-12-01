@@ -1,0 +1,24 @@
+version: 2
+executorType: docker
+containerInfo:
+  - image: ruby:latest
+stages:
+  build:
+    workDir: /home/ubuntu/cci-demo-rails
+    steps:
+      - type: checkout
+      - type: shell
+        name: Install System Dependencies
+        command: apt-get update -qq && apt-get install -y build-essential libpq-dev nodejs
+      - type: shell
+        name: Install Ruby Dependencies
+        command: bundle install
+      - type: shell
+        name: Create DB
+        command: bundle exec rake db:create db:schema:load --trace
+      - type: shell
+        name: Appy migrations DB
+        command: bundle exec rake db:migrate
+      - type: shell
+        name: Test
+        command: bundle exec rake test
