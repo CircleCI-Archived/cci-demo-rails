@@ -9,9 +9,9 @@ stages:
       - type: checkout
       - type: shell
         name: Install System Dependencies
-        command: apt-get update -qq && apt-get install -y build-essential libpq-dev nodejs
+        command: apt-get update && apt-get -y install build-essential libpq-dev nodejs
       - type: shell
-        name: Install Ruby Dependencies
+        name: Install Project Dependencies
         command: bundle install
       - type: shell
         name: Create DB
@@ -20,5 +20,28 @@ stages:
         name: Appy migrations DB
         command: bundle exec rake db:migrate
       - type: shell
-        name: Test
+        name: Run Test
         command: bundle exec rake test
+      - type: shell
+        name: Install Docker Engine
+        command: |
+          curl -L -o /tmp/docker.tgz https://get.docker.com/builds/Linux/x86_64/docker-1.12.3.tgz
+          tar -xz -C /tmp -f /tmp/docker.tgz
+          mv /tmp/docker/docker* /usr/bin/
+          curl -L "https://github.com/docker/compose/releases/download/1.9.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/bin/docker-compose
+          chmod +x  /usr/bin/docker-compose
+      - type: setup-docker-engine
+      - type: shell
+        name: Build Docker Image
+        command: |
+          docker build -t circleci/cci-demo-rails:$CIRCLE_SHA1 -t circleci/cci-demo-rails:latest .
+          docker run -d --name=railsapp circleci/cci-demo-rails:latest; sleep 5
+      - type: shell
+        name: Test Docker Image
+        command: docker exec railsapp curl -sSL http://localhost:3000 | grep "New Todo List"
+      - type: deploy
+        command: |
+          if [ "${CIRCLE_BRANCH}" == "master" ]; then
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            docker push circleci/cci-demo-rails
+          fi
