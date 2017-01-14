@@ -1,0 +1,21 @@
+version: 2
+jobs:
+  build:
+    docker:
+      image: ruby:2.4.0
+    steps:
+      - shell:
+          name: Install System Dependencies
+          command: apt-get update -qq && apt-get install -y build-essential nodejs
+      - shell:
+          name: Install Ruby Dependencies
+          command: bundle install
+      - shell:
+          name: Create DB
+          command: bundle exec rake db:create db:schema:load --trace
+      - shell:
+          name: DB Migrations
+          command: bundle exec rake db:migrate
+      - shell:
+          name: Run Tests
+          command: bundle exec rake test
