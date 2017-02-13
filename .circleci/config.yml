@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      image: ruby:2.4.0
+      - image: ruby:2.4.0
     steps:
       - shell:
           name: Install System Dependencies
