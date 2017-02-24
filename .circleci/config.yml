@@ -3,19 +3,21 @@ jobs:
   build:
     docker:
       - image: ruby:2.4.0
+    working_directory: /home/ubuntu/cci-demo-rails
     steps:
-      - shell:
+      - checkout
+      - run:
           name: Install System Dependencies
           command: apt-get update -qq && apt-get install -y build-essential nodejs
-      - shell:
+      - run:
           name: Install Ruby Dependencies
           command: bundle install
-      - shell:
+      - run:
           name: Create DB
           command: bundle exec rake db:create db:schema:load --trace
-      - shell:
+      - run:
           name: DB Migrations
           command: bundle exec rake db:migrate
-      - shell:
+      - run:
           name: Run Tests
           command: bundle exec rake test
