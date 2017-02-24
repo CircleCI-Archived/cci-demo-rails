@@ -1,4 +1,4 @@
-FROM ruby:latest
+FROM ruby:2.3
 
 # Create app directory
 RUN mkdir -p /src/app
