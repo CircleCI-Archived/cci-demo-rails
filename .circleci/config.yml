@@ -3,6 +3,10 @@ jobs:
   build:
     docker:
       - image: ruby:2.3
+      - image: postgres:9.4.1
+        environment:
+          POSTGRES_USER: root
+
     working_directory: /home/ubuntu/cci-demo-rails
     steps:
       - checkout
