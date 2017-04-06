@@ -18,3 +18,5 @@
 .vagrant
 
 *.swp
+
+vendor/

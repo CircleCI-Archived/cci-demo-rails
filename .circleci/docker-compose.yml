@@ -1,0 +1,27 @@
+version: '2'
+services:
+  db:
+    image: postgres:9.6.2
+    container_name: db_container
+    environment:
+      POSTGRES_USER: root
+    expose:
+      - "5432"
+      
+  es:
+    build: ./images/elasticsearch
+    container_name: es_container
+    image: es_container:0.1
+    ports:
+      - "9200:9200"
+    
+  primary:
+    build: # change context to root to copy app/, Gemfile, etc
+      context: ../
+      dockerfile: ./.circleci/images/primary/Dockerfile
+    container_name: primary_container
+    image: primary_container:0.1
+    depends_on:
+      - es
+      - db
+    
