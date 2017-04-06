@@ -2,16 +2,74 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ruby:2.3
-      - image: postgres:9.4.1
-        environment:
-          POSTGRES_USER: root
+      - image: buildpack-deps:jessie
 
     working_directory: /home/ubuntu/cci-demo-rails
+    
     steps:
       - checkout
-      - run: apt-get update -qq && apt-get install -y build-essential nodejs
-      - run: bundle install
-      - run: bundle exec rake db:create db:schema:load --trace
-      - run: bundle exec rake db:migrate
-      - run: bundle exec rake test
+
+      - setup_remote_docker
+
+      - run:
+          # https://github.com/circleci/cci-demo-docker/blob/docker-compose/.circleci/config.yml#L46
+          name: Install Docker client
+          command: |
+            set -x
+            VER="17.03.0-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+
+      - run:
+          name: Install Docker Compose
+          command: |
+            set -x
+            curl -L https://github.com/docker/compose/releases/download/1.11.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+      
+      - run:
+          name: Run Middleware Docker Containers
+          command: docker-compose -f .circleci/docker-compose.yml up -d
+            
+      - run:
+          name: Health Check Elasticsearch from primary_container
+          environment:
+            HEALTH_CHECK_RETRY_LIMIT: 10
+            HEALTH_CHECK_RETRY_WAIT: 3
+            HEALTH_CHECK_PORT: 9200
+            HEALTH_CHECK_CONTAINER_NAME: es_container
+          command: |
+            for i in $(seq $HEALTH_CHECK_RETRY_LIMIT); do
+              docker run \
+                --network container:$HEALTH_CHECK_CONTAINER_NAME \
+                primary_container:0.1 \
+                nc -vz localhost $HEALTH_CHECK_PORT || (sleep $HEALTH_CHECK_RETRY_WAIT; false) && break
+            done
+          
+      - run:
+          name: Health Check PostgreSQL from primary_container
+          environment:
+            HEALTH_CHECK_RETRY_LIMIT: 20
+            HEALTH_CHECK_RETRY_WAIT: 3
+            HEALTH_CHECK_PORT: 5432
+            HEALTH_CHECK_CONTAINER_NAME: db_container
+          command: |
+            for i in $(seq $HEALTH_CHECK_RETRY_LIMIT); do
+              docker run \
+                --network container:$HEALTH_CHECK_CONTAINER_NAME \
+                primary_container:0.1 \
+                nc -vz localhost $HEALTH_CHECK_PORT || (sleep $HEALTH_CHECK_RETRY_WAIT; false) && break
+            done
+            
+      - run: 
+          name: Setup for Tests
+          command: |
+            docker-compose -f .circleci/docker-compose.yml run primary \
+              rake db:create db:schema:load db:migrate --trace
+          
+      - run: 
+          name: Run Tests
+          command: |
+            docker-compose -f .circleci/docker-compose.yml run primary \
+              rake test
